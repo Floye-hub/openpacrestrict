@@ -1,117 +1,102 @@
-// src/main/java/com/votrenomdemod/ClaimAdjacencyLogic.java
-package com.floye.openpacrestrict; // Remplacez par votre package
+package com.floye.openpacrestrict;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.Identifier;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.text.Text;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// Import OPAC API
 import xaero.pac.common.claims.api.IClaimsManagerAPI;
+import xaero.pac.common.claims.player.api.IPlayerChunkClaimAPI;
 import xaero.pac.common.claims.player.api.IPlayerClaimInfoAPI;
-import xaero.pac.common.server.claims.player.api.IServerPlayerClaimInfoAPI; // Nouvelle interface
-import xaero.pac.common.claims.player.api.IPlayerDimensionClaimsAPI;   // Interface pour les claims d'une dimension
-// Pas besoin d'importer XaeroPlayerClaimInfo ou XaeroPlayerDimensionClaimInfo directement
-// si les interfaces fournissent tout ce dont nous avons besoin.
-// CEPENDANT, pour obtenir les ChunkPos, il est probable que l'implémentation de IPlayerDimensionClaimsAPI (XaeroPlayerDimensionClaimInfo)
-// soit nécessaire pour appeler getClaims().keySet(), car l'interface elle-même ne spécifie pas cette méthode.
-// Si IPlayerDimensionClaimsAPI avait une méthode comme getClaimedChunkPositions(), ce serait idéal.
-// Pour l'instant, nous allons supposer que nous devrons peut-être caster vers l'implémentation connue si l'interface est limitée.
+import xaero.pac.common.server.claims.player.api.IServerPlayerClaimInfoAPI;
+import xaero.pac.common.claims.player.api.IPlayerDimensionClaimsAPI;
+import xaero.pac.common.claims.player.api.IPlayerClaimPosListAPI;
 
-
-import java.util.Collections;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
 public class OpenpacRestrictClient {
 
-	public static final Logger LOGGER = LoggerFactory.getLogger(YourModMainClass.MOD_ID); // Utilisez votre MOD_ID
+	public static final Logger LOGGER = LoggerFactory.getLogger(OpenpacRestrict.MOD_ID);
 
-	public static boolean shouldBlockClaim(ServerPlayer player, ResourceKey<Level> dimensionKey, ChunkPos chunkToClaim) {
-		IClaimsManagerAPI claimsManager = OpenPartiesAndClaimsAPI.getClaimsManager();
+	// Méthode pour obtenir le gestionnaire de claims - vous devrez l'implémenter selon votre architecture
+	private static IClaimsManagerAPI getClaimsManager() {
+		// Cette partie dépend de comment vous accédez aux services du serveur
+		// Voici quelques approches possibles :
+
+		// 1. Si vous avez un singleton ou un accès à l'instance du serveur
+		// return YourServerAccessClass.getClaimsManager();
+
+		// 2. Si vous utilisez un système d'événements pour intercepter les claims
+		// return eventContext.getClaimsManager();
+
+		// Pour le moment, retournons null et vous pourrez adapter cette méthode
+		LOGGER.warn("La méthode getClaimsManager() doit être implémentée correctement");
+		return null;
+	}
+
+	public static boolean shouldBlockClaim(ServerPlayerEntity player, RegistryKey<World> dimensionKey, ChunkPos chunkToClaim) {
+		// Récupérer l'instance de ClaimsManager
+		IClaimsManagerAPI claimsManager = getClaimsManager();
 		if (claimsManager == null) {
-			LOGGER.error("OpenPartiesAndClaimsAPI.getClaimsManager() returned null! Adjacency check cannot proceed.");
-			player.sendSystemMessage(Component.literal("§cErreur interne: Impossible de vérifier les claims (OPAC API non disponible)."), false);
-			return true; // Bloquer par sécurité
+			LOGGER.error("Impossible de récupérer ClaimsManager. Vérifiez l'intégration.");
+			player.sendMessage(Text.literal("§cErreur interne : API OPAC non disponible."), false);
+			return true; // Par sécurité, on bloque le claim
 		}
 
-		UUID playerId = player.getUUID();
-		ResourceLocation dimensionLocation = dimensionKey.location();
+		UUID playerId = player.getUuid(); // Récupérer l'UUID du joueur
 
+		// Vérifie si le joueur a des informations de claim
 		if (!claimsManager.hasPlayerInfo(playerId)) {
-			// Le joueur n'a aucune info de claim, donc aucun claim nulle part.
-			// C'est son premier claim (ou le premier après une réinitialisation). On autorise.
-			return false;
+			return false; // Aucun claim précédent, autorisé
 		}
 
 		IPlayerClaimInfoAPI playerInfoAPI = claimsManager.getPlayerInfo(playerId);
-
-		// Sur le serveur, playerInfoAPI devrait être une instance de IServerPlayerClaimInfoAPI.
 		if (!(playerInfoAPI instanceof IServerPlayerClaimInfoAPI serverPlayerInfo)) {
-			LOGGER.warn("PlayerInfoAPI for player {} is not an instance of IServerPlayerClaimInfoAPI. Actual type: {}. Adjacency check might be unreliable.",
-					playerId, playerInfoAPI.getClass().getName());
-			player.sendSystemMessage(Component.literal("§cErreur: Type d'information de claim inattendu."), false);
-			return true; // Bloquer si l'API ne correspond pas aux attentes.
+			LOGGER.warn("L'API PlayerInfo pour {} n'est pas une instance de IServerPlayerClaimInfoAPI.", playerId);
+			player.sendMessage(Text.literal("§cErreur : Type d'information de claim inattendu."), false);
+			return true; // Par sécurité, on bloque le claim
 		}
 
-		// Utiliser la méthode directe pour obtenir les claims de la dimension
-		IPlayerDimensionClaimsAPI dimensionClaimsAPI = serverPlayerInfo.getDimension(dimensionLocation);
+		// Convertir RegistryKey<World> en Identifier
+		Identifier dimensionId = dimensionKey.getValue();
 
+		// Récupérer les claims dans la dimension actuelle
+		IPlayerDimensionClaimsAPI dimensionClaimsAPI = serverPlayerInfo.getDimension(dimensionId);
 		if (dimensionClaimsAPI == null) {
-			// Le joueur a des infos de claim (vérifié par hasPlayerInfo),
-			// mais aucune pour CETTE dimension spécifique.
-			// C'est donc son premier claim dans cette dimension. On autorise.
-			LOGGER.debug("Player {} has no claims in dimension {}, allowing first claim at {}.", playerId, dimensionLocation, chunkToClaim);
-			return false;
+			return false; // Aucun claim dans cette dimension, autorisé
 		}
 
-		// Maintenant, nous devons obtenir l'ensemble des ChunkPos à partir de dimensionClaimsAPI.
-		// L'interface IPlayerDimensionClaimsAPI ne spécifie pas de méthode pour obtenir directement Set<ChunkPos>.
-		// Nous nous attendons à ce que l'implémentation soit XaeroPlayerDimensionClaimInfo,
-		// qui a une méthode getClaims() retournant Map<ChunkPos, XaeroPlayerChunkClaim>.
-		Set<ChunkPos> ownedChunksInDimension;
-		if (dimensionClaimsAPI instanceof XaeroPlayerDimensionClaimInfo dimensionClaimsImpl) {
-			// C'est l'implémentation concrète, on peut appeler ses méthodes.
-			Map<ChunkPos, ?> claimsMap = dimensionClaimsImpl.getClaims(); // Le type de la valeur n'importe pas ici
-			if (claimsMap == null || claimsMap.isEmpty()) {
-				ownedChunksInDimension = Collections.emptySet();
-			} else {
-				ownedChunksInDimension = claimsMap.keySet();
-			}
-		} else {
-			LOGGER.warn("IPlayerDimensionClaimsAPI for player {} in dimension {} is not an instance of XaeroPlayerDimensionClaimInfo. Actual type: {}. Cannot retrieve chunk positions.",
-					playerId, dimensionLocation, dimensionClaimsAPI.getClass().getName());
-			player.sendSystemMessage(Component.literal("§eAvertissement: Format de claim de dimension inconnu. Contactez un admin."), false);
-			return true; // Bloquer si on ne peut pas obtenir les positions des chunks de manière fiable.
-		}
+		// Obtenir les positions des chunks déjà claimés par le joueur
+		Set<ChunkPos> ownedChunks = new HashSet<>();
+		dimensionClaimsAPI.getStream().forEach(posList -> {
+			// Pour chaque liste de positions, extraire les coordonnées
+			posList.getStream().forEach(claimPos -> {
+				// Dans le contexte de l'API OPAC, nous devons obtenir les coordonnées X et Z
+				// Nous supposons que l'objet retourné par posList.getStream() contient ces informations
+				int x = claimPos.getX(); // Méthode pour obtenir X du claim
+				int z = claimPos.getZ(); // Méthode pour obtenir Z du claim
+				ownedChunks.add(new ChunkPos(x, z));
+			});
+		});
 
+		for (ChunkPos ownedChunk : ownedChunks) {
+			int deltaX = Math.abs(ownedChunk.getX() - chunkToClaim.getX());
+			int deltaZ = Math.abs(ownedChunk.getZ() - chunkToClaim.getZ());
 
-		if (ownedChunksInDimension.isEmpty()) {
-			// Ce cas devrait être couvert par dimensionClaimsAPI == null, mais double vérification.
-			LOGGER.debug("Player {} has an empty claim set in dimension {} (after checks), allowing claim at {}.", playerId, dimensionLocation, chunkToClaim);
-			return false;
-		}
-
-		LOGGER.debug("Player {} attempting to claim {} in {}. Existing claims: {}", playerId, chunkToClaim, dimensionLocation, ownedChunksInDimension.size());
-
-		// Le joueur a déjà des claims dans cette dimension. Vérifions l'adjacence.
-		for (ChunkPos ownedChunk : ownedChunksInDimension) {
-			int deltaX = Math.abs(ownedChunk.x - chunkToClaim.x);
-			int deltaZ = Math.abs(ownedChunk.z - chunkToClaim.z);
-
-			if (deltaX + deltaZ == 1) { // Adjacence cardinale
-				LOGGER.debug("Allowing claim for {} at {} due to adjacency with {}.", playerId, chunkToClaim, ownedChunk);
-				return false; // Ne pas bloquer, un claim adjacent a été trouvé
+			if (deltaX + deltaZ == 1) { // Vérifie si le chunk est adjacent
+				return false; // Autorisé : le chunk est adjacent à un claim existant
 			}
 		}
 
-		// Aucun claim adjacent trouvé.
-		LOGGER.info("Blocking claim for {} at {} in {}: no adjacent claims found.", playerId, chunkToClaim, dimensionLocation);
-		player.sendSystemMessage(Component.literal("§cVous ne pouvez claim que des chunks adjacents à vos claims existants dans cette dimension."), false);
-		return true; // Bloquer le claim
+		// Si aucun claim adjacent n'est trouvé, on bloque le claim
+		player.sendMessage(Text.literal("§cVous ne pouvez claim que des chunks adjacents."), false);
+		return true;
 	}
 }
