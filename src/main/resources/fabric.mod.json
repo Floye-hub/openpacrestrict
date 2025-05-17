@@ -17,17 +17,10 @@
 	"entrypoints": {
 		"main": [
 			"com.floye.openpacrestrict.OpenpacRestrict"
-		],
-		"client": [
-			"com.floye.openpacrestrict.OpenpacRestrictClient"
 		]
 	},
 	"mixins": [
-		"openpacrestrict.mixins.json",
-		{
-			"config": "openpacrestrict.client.mixins.json",
-			"environment": "client"
-		}
+		"openpacrestrict.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.16.14",
