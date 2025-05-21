@@ -3,7 +3,8 @@
 	"package": "com.floye.openpacrestrict.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ClaimsManagerMixin"
+		"ClaimsManagerMixin",
+		"WorldMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

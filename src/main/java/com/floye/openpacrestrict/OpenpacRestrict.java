@@ -46,7 +46,7 @@ public class OpenpacRestrict implements ModInitializer {
 	}
 
 	// Méthode pour obtenir le gestionnaire de claims - vous devrez l'implémenter selon votre architecture
-	private static IServerClaimsManagerAPI getClaimsManager() {
+	public static IServerClaimsManagerAPI getClaimsManager() {
 		MinecraftServer server = getServer(); // Vous devez implémenter cette méthode
 		if (server == null) {
 			LOGGER.error("Impossible d'accéder au serveur Minecraft");
