@@ -1,6 +1,8 @@
 package com.floye.openpacrestrict;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.Identifier;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.registry.RegistryKey;
@@ -14,9 +16,11 @@ import org.slf4j.LoggerFactory;
 import xaero.pac.common.claims.api.IClaimsManagerAPI;
 import xaero.pac.common.claims.player.api.IPlayerChunkClaimAPI;
 import xaero.pac.common.claims.player.api.IPlayerClaimInfoAPI;
+import xaero.pac.common.server.claims.api.IServerClaimsManagerAPI;
 import xaero.pac.common.server.claims.player.api.IServerPlayerClaimInfoAPI;
 import xaero.pac.common.claims.player.api.IPlayerDimensionClaimsAPI;
 import xaero.pac.common.claims.player.api.IPlayerClaimPosListAPI;
+import xaero.pac.common.server.api.OpenPACServerAPI;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -32,19 +36,34 @@ public class OpenpacRestrict implements ModInitializer {
 		// Code d'initialisation du mod
 		LOGGER.info("OpenpacRestrict initialized");
 
+		ServerLifecycleEvents.SERVER_STARTING.register(ServerHelper::setServer);
+
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+			ServerHelper.setServer(null);
+		});
 		// Ici vous pourriez enregistrer des événements pour intercepter les claims
 		// et utiliser la méthode shouldBlockClaim
 	}
 
 	// Méthode pour obtenir le gestionnaire de claims - vous devrez l'implémenter selon votre architecture
-	private static IClaimsManagerAPI getClaimsManager() {
-		LOGGER.warn("La méthode getClaimsManager() doit être implémentée correctement");
-		return null;
+	private static IServerClaimsManagerAPI getClaimsManager() {
+		MinecraftServer server = getServer(); // Vous devez implémenter cette méthode
+		if (server == null) {
+			LOGGER.error("Impossible d'accéder au serveur Minecraft");
+			return null;
+		}
+
+		return xaero.pac.common.server.api.OpenPACServerAPI.get(server).getServerClaimsManager();
 	}
 
+	private static MinecraftServer getServer() {
+		// Dans Fabric, vous pouvez obtenir le serveur de différentes façons
+		// Une option courante est via ServerLifecycleEvents
+		return ServerHelper.getServer(); // Vous devrez créer cette classe helper
+	}
 	public static boolean shouldBlockClaim(ServerPlayerEntity player, RegistryKey<World> dimensionKey, ChunkPos chunkToClaim) {
 		// Récupérer l'instance de ClaimsManager
-		IClaimsManagerAPI claimsManager = getClaimsManager();
+		IServerClaimsManagerAPI claimsManager = getClaimsManager();
 		if (claimsManager == null) {
 			LOGGER.error("Impossible de récupérer ClaimsManager. Vérifiez l'intégration.");
 			player.sendMessage(Text.literal("§cErreur interne : API OPAC non disponible."), false);
