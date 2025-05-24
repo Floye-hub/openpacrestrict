@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ClaimsManagerMixin",
-		"WorldMixin"
+		"WorldBlockPlaceMixin",
+		"WorldBlockBreakMixin",
+		"ServerPlayerInteractionManagerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
