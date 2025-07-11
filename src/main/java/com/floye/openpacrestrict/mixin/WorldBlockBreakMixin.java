@@ -37,11 +37,19 @@ public abstract class WorldBlockBreakMixin {
         BlockState state = world.getBlockState(pos);
         Identifier blockId = Registries.BLOCK.getId(state.getBlock());
 
-        if (RestrictionHelper.ALLOWED_BLOCKS.contains(blockId)) {
+        if (RestrictionHelper.ALLOWED_BLOCKS_BREAK.contains(blockId)) {
             return;
         }
 
         Identifier dimension = world.getRegistryKey().getValue();
+
+        if (blockId.toString().startsWith("waystones:")) {
+            serverPlayer.sendMessage(Text.literal("§cVous ne pouvez pas casser ce type de bloc dans monde:ressource."), true);
+            cir.setReturnValue(false);
+            return;
+        }
+
+
 
         if (isRestrictedDimension(dimension, serverPlayer)) {
             serverPlayer.sendMessage(Text.literal("§cVous ne pouvez pas détruire dans cette dimension."), true);
