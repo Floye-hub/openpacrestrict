@@ -1,10 +1,10 @@
-// Fichier : src/main/java/com/floye/openpacrestrict/mixin/ServerPlayerInteractionManagerBlockPlaceMixin.java
 package com.floye.openpacrestrict.mixin;
 
 import com.floye.openpacrestrict.util.RestrictionHelper;
 import net.minecraft.block.Block;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.BucketItem;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.network.ServerPlayerInteractionManager;
@@ -43,33 +43,69 @@ public abstract class WorldBlockPlaceMixin {
             return;
         }
 
-        // Si l'objet tenu n'est pas un bloc à placer, ou si le joueur est un "builder", on laisse passer
-        if (!(stack.getItem() instanceof BlockItem) || player.getCommandTags().contains("builder")) {
-            return;
-        }
-
-        Block blockToPlace = ((BlockItem) stack.getItem()).getBlock();
-        Identifier blockId = Registries.BLOCK.getId(blockToPlace);
-
-        // Si le bloc est dans la whitelist de construction, on autorise toujours
-        if (RestrictionHelper.ALLOWED_BLOCKS_BUILD.contains(blockId)) {
-            return;
-        }
-
         Identifier dimension = world.getRegistryKey().getValue();
+        ChunkPos chunkPos = new ChunkPos(hitResult.getBlockPos()); // Position du bloc ciblé pour la pose
 
-        // Interdire la construction dans les dimensions "event" et "aventure"
-        if (dimension.equals(RestrictionHelper.EVENT_DIMENSION) || dimension.equals(RestrictionHelper.AVENTURE_DIMENSION)) {
-            player.sendMessage(Text.literal("§cVous ne pouvez pas construire dans cette dimension."), true);
-            cir.setReturnValue(ActionResult.FAIL); // Annule l'action
-            return;
-        }
-
-        // Pour l'overworld, vérifier les claims
+        // Vérifier si on est dans la dimension "royaume" (overworld)
         if (dimension.equals(World.OVERWORLD.getValue())) {
-            ChunkPos chunkPos = new ChunkPos(hitResult.getBlockPos()); // Position du bloc ciblé pour la pose
 
-            if (!RestrictionHelper.isInPlayerClaim(player, World.OVERWORLD.getValue(), chunkPos)) {
+            // Si l'objet tenu est un seau, on vérifie le claim
+            if (stack.getItem() instanceof BucketItem) {
+
+
+                if (!RestrictionHelper.isInPlayerClaim(player, World.OVERWORLD.getValue(), chunkPos)) {
+                    player.sendMessage(Text.literal("§cVous ne pouvez poser de seau que dans vos claims dans le royaume."), true);
+                    cir.setReturnValue(ActionResult.FAIL); // Annule l'action
+                }
+            } else {
+                // Si l'objet tenu n'est pas un bloc à placer, ou si le joueur est un "builder", on laisse passer
+                if (!(stack.getItem() instanceof BlockItem) || player.getCommandTags().contains("builder")) {
+                    return;
+                }
+
+                Block blockToPlace = ((BlockItem) stack.getItem()).getBlock();
+                Identifier blockId = Registries.BLOCK.getId(blockToPlace);
+
+                // Si le bloc est dans la whitelist de construction, on autorise toujours
+                if (RestrictionHelper.ALLOWED_BLOCKS_BUILD.contains(blockId)) {
+                    return;
+                }
+
+
+                // Pour l'overworld, vérifier les claims
+
+
+                if (!RestrictionHelper.isInPlayerClaim(player, World.OVERWORLD.getValue(), chunkPos)) {
+                    player.sendMessage(Text.literal("§cVous ne pouvez construire que dans vos claims."), true);
+                    cir.setReturnValue(ActionResult.FAIL); // Annule l'action
+                }
+            }
+        }
+        // Si l'objet tenu n'est pas un bloc à placer, ou si le joueur est un "builder", on laisse passer
+        else if (!(stack.getItem() instanceof BlockItem) || player.getCommandTags().contains("builder")) {
+            return;
+        } else {
+
+            Block blockToPlace = ((BlockItem) stack.getItem()).getBlock();
+            Identifier blockId = Registries.BLOCK.getId(blockToPlace);
+
+            // Si le bloc est dans la whitelist de construction, on autorise toujours
+            if (RestrictionHelper.ALLOWED_BLOCKS_BUILD.contains(blockId)) {
+                return;
+            }
+
+
+            // Interdire la construction dans les dimensions "event" et "aventure"
+            if (dimension.equals(RestrictionHelper.EVENT_DIMENSION) || dimension.equals(RestrictionHelper.AVENTURE_DIMENSION)) {
+                player.sendMessage(Text.literal("§cVous ne pouvez pas construire dans cette dimension."), true);
+                cir.setReturnValue(ActionResult.FAIL); // Annule l'action
+                return;
+            }
+
+            // Pour l'overworld, vérifier les claims
+
+
+            if (!RestrictionHelper.isInPlayerClaim(player, dimension, chunkPos)) {
                 player.sendMessage(Text.literal("§cVous ne pouvez construire que dans vos claims."), true);
                 cir.setReturnValue(ActionResult.FAIL); // Annule l'action
             }
