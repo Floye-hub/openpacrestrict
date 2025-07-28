@@ -6,7 +6,9 @@
 		"ClaimsManagerMixin",
 		"WorldBlockPlaceMixin",
 		"WorldBlockBreakMixin",
-		"ServerPlayerInteractionManagerAccessor"
+		"ServerPlayerInteractionManagerAccessor",
+		"BucketPlaceRestrictMixin",
+		"ServerClaimsManagerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
