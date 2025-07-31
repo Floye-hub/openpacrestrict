@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter;
 
 public class ClaimLogger {
 
-    private static final String DEFAULT_FILE = "PKH/logs/claim_logs.csv";
+    private static final String DEFAULT_FILE = "logs/PKH/claim_logs.csv";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final Path filePath;
@@ -21,12 +21,17 @@ public class ClaimLogger {
     }
 
     private void initFile() {
-        if (!Files.exists(filePath)) {
-            try (FileWriter writer = new FileWriter(filePath.toFile(), true)) {
-                writer.write("DateHeure,Player,Action,X,Z,Dimension\n");
-            } catch (IOException e) {
-                e.printStackTrace();
+        try {
+            // Créer les répertoires parents si nécessaires
+            Files.createDirectories(filePath.getParent());
+
+            if (!Files.exists(filePath)) {
+                try (FileWriter writer = new FileWriter(filePath.toFile(), true)) {
+                    writer.write("DateHeure,Player,Action,X,Z,Dimension\n");
+                }
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
