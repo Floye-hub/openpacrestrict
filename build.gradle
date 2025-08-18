@@ -11,6 +11,11 @@ base {
 }
 
 repositories {
+	maven { url = "https://maven.impactdev.net/repository/development" }
+	maven { url = "https://oss.sonatype.org/content/repositories/snapshots" }
+	maven { url = "https://s01.oss.sonatype.org/content/repositories/snapshots" }
+	maven { url = "https://jitpack.io" }
+
 	flatDir { dirs "libs" }
 }
 
@@ -33,7 +38,7 @@ dependencies {
 	modImplementation files('libs/open-parties-and-claims-fabric-1.21.1-0.24.0.jar')
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
+	implementation "net.impactdev.impactor.api:economy:5.3.0"
 }
 
 processResources {

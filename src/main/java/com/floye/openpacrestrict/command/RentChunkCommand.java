@@ -31,8 +31,11 @@ public class RentChunkCommand {
 
             ServerWorld world = (ServerWorld) player.getWorld();
 
-            boolean success = RentalManager.rentChunk(player, world);
-            return success ? 1 : 0;
+            // Traitement asynchrone (paiement + location)
+            RentalManager.rentChunk(player, world);
+
+            // On renvoie OK tout de suite, les messages de résultat arrivent ensuite
+            return 1;
         } catch (Exception e) {
             context.getSource().sendError(Text.literal("Erreur: " + e.getMessage()));
             return 0;

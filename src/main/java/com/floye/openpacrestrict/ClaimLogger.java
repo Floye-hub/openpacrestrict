@@ -22,9 +22,7 @@ public class ClaimLogger {
 
     private void initFile() {
         try {
-            // Créer les répertoires parents si nécessaires
             Files.createDirectories(filePath.getParent());
-
             if (!Files.exists(filePath)) {
                 try (FileWriter writer = new FileWriter(filePath.toFile(), true)) {
                     writer.write("DateHeure,Player,Action,X,Z,Dimension\n");
@@ -36,6 +34,11 @@ public class ClaimLogger {
     }
 
     public void log(String playerName, String action, int x, int z, String dimension) {
+        // Bloque les logs tant que le serveur n'a pas fini le délai de démarrage
+        if (!ClaimLogGate.isEnabled()) {
+            return;
+        }
+
         String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
         String line = String.format("%s,%s,%s,%d,%d,%s%n", timestamp, playerName, action, x, z, dimension);
         try (FileWriter writer = new FileWriter(filePath.toFile(), true)) {
